@@ -588,6 +588,102 @@ class PhoneNumberUtil
     }
 
     /**
+     * Returns the types for a given region which the library has metadata for. Will not include
+     * FIXED_LINE_OR_MOBILE (if numbers in this region could be classified as FIXED_LINE_OR_MOBILE,
+     * both FIXED_LINE and MOBILE would be present) and UNKNOWN.
+     *
+     * No types will be returned for invalid or unknown region codes.
+     *
+     * @return  array
+     */
+    public function getSupportedTypesForRegion($regionCode)
+    {
+        if (!$this->isValidRegionCode($regionCode)) {
+            return [];
+        }
+
+        $metadata = $this->getMetadataForRegion($regionCode);
+
+        return $this->getSupportedTypesForMetadata($metadata);
+    }
+
+    /**
+     * Returns the types for a country-code belonging to a non-geographical entity which the library
+     * has metadata for. Will not include FIXED_LINE_OR_MOBILE (if numbers for this non-geographical
+     * entity could be classified as FIXED_LINE_OR_MOBILE, both FIXED_LINE and MOBILE would be
+     * present) and UNKNOWN.
+     *
+     * No types will be returned for country calling codes that do not map to a known non-geographical
+     * entity.
+     */
+    public function getSupportedTypesForNonGeoEntity($countryCallingCode)
+    {
+        $metadata = $this->getMetadataForNonGeographicalRegion($countryCallingCode);
+
+        // TODO: Doesn't look like getMetadataForNonGeographicalRegion returns null
+        if (is_null($metadata)) {
+            return [];
+        }
+
+        return $this->getSupportedTypesForMetadata($metadata);
+    }
+
+    /**
+     * Returns the types we have metadata for based on the PhoneMetadata object passed in, which must
+     * be non-null.
+     *
+     * @return array
+     */
+    private function getSupportedTypesForMetadata(PhoneMetadata $metadata, PhoneNumberType $type)
+    {
+        $types = [];
+
+        $reflection = new \ReflectionClass(PhoneNumberType::class);
+        foreach($reflection->getConstants() as $type) {
+            if ($type === PhoneNumberType::FIXED_LINE_OR_MOBILE or $type === PhoneNumberType::UNKNOWN) {
+                continue;
+            }
+
+            if ($this->getSupportedTypesForMetadata($metadata, $type)) {
+                $types[] = $type;
+            }
+        }
+
+        return $types;
+    }
+
+    /**
+     * Returns true if there is any possible number data set for a particular PhoneNumberDesc.
+     */
+    private static function descHasPossibleNumberData($desc)
+    {
+        // If this is empty, it means numbers of this type inherit from the "general desc" -> the value
+        // "-1" means that no numbers exist for this type.
+
+        return (($desc->getPossibleLengthCount() !== 1) or 
+                ($desc->getPossibleLength[0] !== -1));
+    }
+
+    // Note: descHasData must account for any of MetadataFilter's excludableChildFields potentially
+    // being absent from the metadata. It must check them all. For any changes in descHasData, ensure
+    // that all the excludableChildFields are still being checked. If your change is safe simply
+    // mention why during a review without needing to change MetadataFilter.
+    /**
+     * Returns true if there is any data set for a particular PhoneNumberDesc.
+     */
+    private static function descHasData(PhoneNumberDesc $desc)
+    {
+        // Checking most properties since we don't know what's present, since a custom build may have
+        // stripped just one of them (e.g. liteBuild strips exampleNumber). We don't bother checking the
+        // possibleLengthsLocalOnly, since if this is the only thing that's present we don't really
+        // support the type at all: no type-specific methods will work with only this data.
+        
+        return ($desc->hasExampleNumber() or
+            $this->descHasPossibleNumberData($desc) or
+            ($desc->hasNationalNumberPattern() and $desc->getNationalNumberPattern() !== 'NA'));
+    }
+
+    /**
      * Convenience method to get a list of what global network calling codes the library has metadata
      * for.
      * @return array
@@ -3264,6 +3360,69 @@ class PhoneNumberUtil
         }
     }
 
+
+    /**
+     * Convenience wrapper around {@link #isPossibleNumberForTypeWithReason}. Instead of returning the
+     * reason for failure, this method returns a boolean value.
+     *
+     * @param number  the number that needs to be checked
+     * @param type  the type we are interested in
+     * @return  true if the number is possible for this particular type
+     */
+    public function isPossibleNumberForType(PhoneNumber $number, PhoneNumberType $type)
+    {
+        return ($this->isPossibleNumberForTypeWithReason($number, $type) === ValidationResult::IS_POSSIBLE);
+    }
+
+
+    /**
+     * Check whether a phone number is a possible number of a particular type. For types that don't
+     * exist in a particular region, this will return a result that isn't so useful; it is recommended
+     * that you use {@link #getSupportedTypesForRegion} or {@link #getSupportedTypesForNonGeoEntity}
+     * respectively before calling this method to determine whether you should call it for this number
+     * at all.
+     *
+     * This provides a more lenient check than {@link #isValidNumber} in the following sense:
+     *
+     * <ol>
+     *   <li> It only checks the length of phone numbers. In particular, it doesn't check starting
+     *       digits of the number.
+     *   <li> For fixed line numbers, many regions have the concept of area code, which together with
+     *       subscriber number constitute the national significant number. It is sometimes okay to
+     *       dial the subscriber number only when dialing in the same area. This function will return
+     *       true if the subscriber-number-only version is passed in. On the other hand, because
+     *       isValidNumber validates using information on both starting digits (for fixed line
+     *       numbers, that would most likely be area codes) and length (obviously includes the length
+     *       of area codes for fixed line numbers), it will return false for the
+     *       subscriber-number-only version.
+     * </ol>
+     *
+     * @param number  the number that needs to be checked
+     * @param type  the type we are interested in
+     * @return  a ValidationResult object which indicates whether the number is possible
+     */
+    public function isPossibleNumberForTypeWithReason($number, $type)
+    {
+        $nationalNumber = $this->getNationalSignificantNumber($number);
+        $countryCode = $number->getCountryCode();
+
+        // Note: For regions that share a country calling code, like NANPA numbers, we just use the
+        // rules from the default region (US in this case) since the getRegionCodeForNumber will not
+        // work if the number is possible but not valid. There is in fact one country calling code (290)
+        // where the possible number pattern differs between various regions (Saint Helena and Tristan
+        // da Cuñha), but this is handled by putting all possible lengths for any country with this
+        // country calling code in the metadata for the default region in this case.
+        
+        if ($this->hasValidCountryCallingCode($countryCode)) {
+            return ValidationResult::INVALID_COUNTRY_CODE;
+        }
+
+        $regionCode = $this->getRegionCodeForCountryCode($countryCode);
+        // Metadata cannot be null because the country calling code is valid.
+        $metadata = $this->getMetadataForRegionOrCallingCode($countryCode, $regionCode);
+
+        return $this->testNumberLength($nationalNumber, $metadata, $type);
+    }
 
     /**
      * Check whether a phone number is a possible number. It provides a more lenient check than

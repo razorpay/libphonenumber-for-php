@@ -49,6 +49,11 @@ class PhoneNumberDesc
         return $this->possibleLength;
     }
 
+    public function getPossibleLengthCount()
+    {
+        return count($this->possibleLength);
+    }
+
     /**
      * @param array $possibleLength
      */
