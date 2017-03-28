@@ -37,7 +37,7 @@ return array (
   ),
   'mobile' => 
   array (
-    'NationalNumberPattern' => '242(?:3(?:5[79]|[79]5)|4(?:[2-4][1-9]|5[1-8]|6[2-8]|7\\d|81)|5(?:2[45]|3[35]|44|5[1-9]|65|77)|6[34]6|727)\\d{4}',
+    'NationalNumberPattern' => '242(?:3(?:5[79]|[79]5)|4(?:[2-4][1-9]|5[1-8]|6[2-8]|7\\d|81)|5(?:2[45]|3[35]|44|5[1-9]|65|77)|6[34]6|7(?:27|38)|8(?:0[1-9]|1[02-9]|2\\d|99))\\d{4}',
     'ExampleNumber' => '2423591234',
     'PossibleLength' => 
     array (
@@ -48,7 +48,7 @@ return array (
   ),
   'tollFree' => 
   array (
-    'NationalNumberPattern' => '242300\\d{4}|8(?:00|44|55|66|77|88)[2-9]\\d{6}',
+    'NationalNumberPattern' => '242300\\d{4}|8(?:00|33|44|55|66|77|88)[2-9]\\d{6}',
     'ExampleNumber' => '8002123456',
     'PossibleLength' => 
     array (

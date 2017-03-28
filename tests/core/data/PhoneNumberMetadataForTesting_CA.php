@@ -27,6 +27,7 @@ return array (
   'fixedLine' => 
   array (
     'NationalNumberPattern' => '226\\d{7}',
+    'ExampleNumber' => '2261234567',
     'PossibleLength' => 
     array (
     ),

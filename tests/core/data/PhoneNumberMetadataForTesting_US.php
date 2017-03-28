@@ -49,6 +49,7 @@ return array (
   'tollFree' => 
   array (
     'NationalNumberPattern' => '8(?:00|66|77|88)\\d{7}',
+    'ExampleNumber' => '8004567890',
     'PossibleLength' => 
     array (
     ),
@@ -59,6 +60,7 @@ return array (
   'premiumRate' => 
   array (
     'NationalNumberPattern' => '900\\d{7}',
+    'ExampleNumber' => '9004567890',
     'PossibleLength' => 
     array (
     ),
@@ -135,6 +137,7 @@ return array (
   'noInternationalDialling' => 
   array (
     'NationalNumberPattern' => '800\\d{7}',
+    'ExampleNumber' => '8004567890',
     'PossibleLength' => 
     array (
     ),
